@@ -29,20 +29,19 @@ for i in range(len(df)):
 
 
 def run(ctx):
-
     [samples, m300_mount, p300_mount,
-        mag_engage_height] = get_values(  # noqa: F821
+     mag_engage_height] = get_values(  # noqa: F821
         "samples", "m300_mount", "p300_mount", "mag_engage_height")
 
-    cols = math.ceil(len(df)/8)
+    cols = math.ceil(len(df) / 8)
     ctx.set_rail_lights(True)
     # Load Labware
     tc_mod = ctx.load_module('Thermocycler Module')
     tc_plate = tc_mod.load_labware('biorad_96_wellplate_200ul_pcr')
     mag_mod = ctx.load_module('magnetic module gen2', '1')
-    mag_plate = mag_mod.load_labware( 'thermofisher_96_midi_storage_plate_800ul')
+    mag_plate = mag_mod.load_labware('thermofisher_96_midi_storage_plate_800ul')
     temp_mod = ctx.load_module('temperature module gen2', 4)
-    temp_rack = temp_mod.load_labware( 'opentrons_24_aluminumblock_generic_2ml_screwcap')
+    temp_rack = temp_mod.load_labware('opentrons_24_aluminumblock_generic_2ml_screwcap')
     final_plate = ctx.load_labware('biorad_96_wellplate_200ul_pcr', 2)
     reservoir = ctx.load_labware('nest_12_reservoir_15ml', 5)
     tipracks_multi = [ctx.load_labware('opentrons_96_tiprack_300ul', slot) for slot in [6, 9]]
@@ -132,7 +131,7 @@ def run(ctx):
                     self.labware_wells = self.labware_wells_backup.copy()
                 well = next(iter(self.labware_wells))
             if self.pip_type == 'multi':
-                self.labware_wells[well] = self.labware_wells[well] + vol*8
+                self.labware_wells[well] = self.labware_wells[well] + vol * 8
             elif self.pip_type == 'single':
                 self.labware_wells[well] = self.labware_wells[well] + vol
             if self.mode == 'waste':
@@ -151,109 +150,132 @@ def run(ctx):
     temp_mod.set_temperature(8)
 
     # Transfer End Prep Mix to Samples on PCR Plate (1)
+    def transfer_endprepmix():
+        for i in range(len(Target_position)):
+            #         p300.pick_up_tip()
+            #         p300.aspirate(12, mm)
 
-    for i in range(len(Target_position)):
-        p300.pick_up_tip()
-        p300.aspirate(12, mm)
-
-        p300.dispense(12, tc_plate[Target_position[i]])
-        p300.mix(3, 30, tc_plate[Target_position[i]])
-        p300.blow_out()
-        p300.drop_tip(home_after=False)
-    # p300.transfer(12, mm, [tc_plate.wells_by_name()[well_name] for well_name in Target_position], new_tip='always',
-    #               mix_after=(3, 30))
+            #         p300.dispense(12, tc_plate[Target_position[i]])
+            #         p300.mix(3, 30, tc_plate[Target_position[i]])
+            #         p300.blow_out()
+            #         p300.drop_tip(home_after=False)
+            p300.transfer(12, mm, tc_plate[Target_position[i]], new_tip='always',
+                          mix_after=(3, 30), trash=False)
     temp_mod.deactivate()
 
     # Pause for Spin Down (2)
-    ctx.pause('Spin down the plate while Thermocycler pre heating to 20C is ongoing and resume.')
-    #
-    # # Pre-Heat Thermocycler to 20C
-    # ctx.pause('Pre-Heating the thermocycler to 20C.')
-    tc_mod.set_block_temperature(20)
-    tc_mod.set_lid_temperature(70)
-    ctx.pause('Put the sample plate into the thermocycler')
+    def spindown_thermocycler_process():
+        ctx.pause('Spin down the plate while Thermocycler pre heating to 20C is ongoing and resume.')
+        #
+        # # Pre-Heat Thermocycler to 20C
+        # ctx.pause('Pre-Heating the thermocycler to 20C.')
+        tc_mod.set_block_temperature(20)
+        tc_mod.set_lid_temperature(70)
+        ctx.pause('Put the sample plate into the thermocycler')
 
-    # Incubate on Thermocycler (3)
-    tc_mod.close_lid()
-    profile = [{'temperature': 20, 'hold_time_minutes': 5},
-               {'temperature': 65, 'hold_time_minutes': 5}]
-    tc_mod.execute_profile(steps=profile, repetitions=1, block_max_volume=60)
-    tc_mod.open_lid()
-    tc_mod.deactivate()
+        # Incubate on Thermocycler (3)
+        tc_mod.close_lid()
+        profile = [{'temperature': 20, 'hold_time_minutes': 5},
+                   {'temperature': 65, 'hold_time_minutes': 5}]
+        tc_mod.execute_profile(steps=profile, repetitions=1, block_max_volume=60)
+        tc_mod.open_lid()
+        tc_mod.deactivate()
 
     # Resuspend AMPure Beads (4)
-    m300.pick_up_tip()
-    m300.mix(5, 300, ampure_beads.bottom(z=3))
-    m300.drop_tip()
+    #     m300.pick_up_tip()
+    #     m300.mix(5, 300, ampure_beads.bottom(z=3))
+    #     m300.drop_tip()
 
     # Transfer Samples from TC to Mag Mod (5)
-    for src, dest in zip(tc_plate_wells, mag_plate_wells):
-        m300.pick_up_tip()
-        m300.transfer(60, src, dest, new_tip='never')
-        m300.drop_tip()
+    def transfer_samples_f_TC():
+        for src, dest in zip(tc_plate_wells, mag_plate_wells):
+            # m300.pick_up_tip()
+            m300.transfer(60, src, dest, new_tip='always', mix_after=(5, 60), trash=False)
+            # m300.drop_tip()
 
     # Add AMPure XP Beads to Mag Mod (6-7)
-    for well in mag_plate_wells:
-        pick_up(m300)
-        m300.transfer(60, ampure_beads, well, new_tip='never',
-                      mix_after=(3, 60))
-        m300.drop_tip()
+    def adding_ampurebeads():
+        ctx.pause('''Add Ampure Beads manually to reservoir in slot 3 Position 12.''')
+        for well in mag_plate_wells:
+            # pick_up(m300)
+            m300.transfer(60, ampure_beads, well, new_tip='never',
+                          mix_before=(3, 60), trash=False)
+            # m300.drop_tip()
 
     # Pause for Hula Mixer/Spin Down (8-9)
-    ctx.pause('''Incubate on Hula Mixer for 5 minutes and spin down the samples.
-                Then place back on the magnet and click resume.''')
+    def incubate_time1():
+        ctx.pause('''Incubate on Hula Mixer for 5 minutes and spin down the samples.
+                    Then place back on the magnet and click resume.''')
 
     # Engage Magnet and Delay for 5 Minutes (10)
-    magnet(5)
-    # Remove Supernatant (11)
-    for well, side in zip(mag_plate_wells, sides):
-        pick_up(m300)
-        remove_supernatant(100, well, trash, side)
-        m300.drop_tip()
-
-    # (12-14)
-    for _ in range(2):
-        # Wash Beads with Ethanol (12)
-        for well in mag_plate_wells:
+    def magnet_removesupernatant():
+        magnet(5)
+        # Remove Supernatant (11)
+        for well, side in zip(mag_plate_wells, sides):
             pick_up(m300)
-            m300.aspirate(200, ethanolTrack.tracker(200))
-            m300.dispense(200, well.top(-3))
-            m300.mix(3, 100)
+            remove_supernatant(200, well, trash, side)
             m300.drop_tip()
 
-        # Remove Supernatant (11)
+    # (12-14)# Wash Beads with Ethanol (12)
+    def washing_step():
+        for _ in range(2):
+            # Wash Beads with Ethanol (12)
+            for well in mag_plate_wells:
+                pick_up(m300)
+                m300.aspirate(200, ethanolTrack.tracker(200))
+                m300.dispense(200, well.top(-3))
+                m300.mix(3, 100)
+                m300.drop_tip()
+
+            # Remove Supernatant (11)
+            for well, side in zip(mag_plate_wells, sides):
+                pick_up(m300)
+                remove_supernatant(100, well, trash, side)
+                m300.drop_tip()
+
+    # Pause and Remove Samples for Spin Down (15)
+    def pause_spindown_remove_samples():
+        mag_mod.disengage()
+        ctx.pause('''Spin down and place samples back on the maget.
+                 Then click resume.''')
+        magnet(1)
+
+        # Remove Residual Ethanol (16)
         for well, side in zip(mag_plate_wells, sides):
             pick_up(m300)
             remove_supernatant(100, well, trash, side)
             m300.drop_tip()
 
-    # Pause and Remove Samples for Spin Down (15)
-    mag_mod.disengage()
-    ctx.pause('''Spin down and place samples back on the maget.
-             Then click resume.''')
-    magnet(1)
+        # Add 61 uL of Nuclease-free Water (17)
+        mag_mod.disengage()
 
-    # Remove Residual Ethanol (16)
-    for well, side in zip(mag_plate_wells, sides):
-        pick_up(m300)
-        remove_supernatant(100, well, trash, side)
-        m300.drop_tip()
+    # Transfer 61 EB to MIDI plate
+    def transfer_eb_midi():
+        for well in mag_plate_wells:
+            m300.transfer(61, nfa, well.top(-3), mix_after=(3, 60), new_tip='always', trash=False)
+        ctx.delay(minutes=2, msg='Incubating at Room Temperature for 2 minutes...')
 
-    # Add 61 uL of Nuclease-free Water (17)
-    mag_mod.disengage()
-    for well in mag_plate_wells:
-        m300.transfer(61, nfa, well.top(-3), mix_after=(3, 60))
-    ctx.delay(minutes=2, msg='Incubating at Room Temperature for 2 minutes...')
+        # Engage Magnet (18)
+        magnet(5)
 
-    # Engage Magnet (18)
-    magnet(5)
+    # Transfer Eluate into PCRplate plate for part 2 (19)
+    def transfer_final_result():
+        for well, dest, side in zip(mag_plate_wells, final_plate_wells, sides):
+            pick_up(m300)
+            remove_supernatant(100, well, dest, side)
+            m300.drop_tip()
 
-    # Transfer Eluate into MIDI plate for part 2 (19)
-    for well, dest, side in zip(mag_plate_wells, final_plate_wells, sides):
-        pick_up(m300)
-        remove_supernatant(100, well, dest, side)
-        m300.drop_tip()
+        temp_mod.deactivate()
+        mag_mod.disengage()
+        ctx.set_rail_lights(False)
 
-    temp_mod.deactivate()
-    mag_mod.disengage()
-    ctx.set_rail_lights(False)
+    transfer_endprepmix()
+    spindown_thermocycler_process()
+    adding_ampurebeads()
+    transfer_samples_f_TC()
+    incubate_time1()
+    magnet_removesupernatant()
+    washing_step()
+    pause_spindown_remove_samples()
+    transfer_eb_midi()
+    transfer_final_result()
