@@ -234,7 +234,7 @@ def run(ctx):
             # Remove Supernatant (11)
             for well, side in zip(mag_plate_wells, sides):
                 pick_up(m300)
-                remove_supernatant(100, well, trash, side)
+                remove_supernatant(200, well, trash, side)
                 m300.drop_tip()
 
     # Pause and Remove Samples for Spin Down (15)
