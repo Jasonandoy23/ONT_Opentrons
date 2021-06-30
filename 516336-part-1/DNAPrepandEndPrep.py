@@ -152,6 +152,7 @@ def run(ctx):
     # Transfer End Prep Mix to Samples on PCR Plate (1)
     def transfer_endprepmix():
         temp_mod.set_temperature(8)
+        ctx.pause('Add the Mastermix tube to the cooling block position A1 and resume.')
         for i in range(len(Target_position)):
             #         p300.pick_up_tip()
             #         p300.aspirate(12, mm)
