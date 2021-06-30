@@ -43,9 +43,9 @@ def run(ctx):
     temp_mod = ctx.load_module('temperature module gen2', 4)
     temp_rack = temp_mod.load_labware('opentrons_24_aluminumblock_generic_2ml_screwcap')
     final_plate = ctx.load_labware('biorad_96_wellplate_200ul_pcr', 2)
-    reservoir = ctx.load_labware('nest_12_reservoir_15ml', 5)
+    reservoir = ctx.load_labware('nest_12_reservoir_15ml', 3)
     tipracks_multi = [ctx.load_labware('opentrons_96_tiprack_300ul', slot) for slot in [6, 9]]
-    tipsracks_single = ctx.load_labware('opentrons_96_tiprack_300ul', 3)
+    tipsracks_single = ctx.load_labware('opentrons_96_tiprack_300ul', 5)
     trash = ctx.loaded_labwares[12]['A1']
 
     # Load Pipettes
@@ -147,10 +147,11 @@ def run(ctx):
 
     # PROTOCOL STEPS
     # Set Temperature Module to 6C
-    temp_mod.set_temperature(8)
+
 
     # Transfer End Prep Mix to Samples on PCR Plate (1)
     def transfer_endprepmix():
+        temp_mod.set_temperature(8)
         for i in range(len(Target_position)):
             #         p300.pick_up_tip()
             #         p300.aspirate(12, mm)
@@ -161,7 +162,8 @@ def run(ctx):
             #         p300.drop_tip(home_after=False)
             p300.transfer(12, mm, tc_plate[Target_position[i]], new_tip='always',
                           mix_after=(3, 30), trash=False)
-    temp_mod.deactivate()
+            # p300.drop_tip(home_after=False)
+        temp_mod.deactivate()
 
     # Pause for Spin Down (2)
     def spindown_thermocycler_process():
@@ -186,20 +188,21 @@ def run(ctx):
     #     m300.mix(5, 300, ampure_beads.bottom(z=3))
     #     m300.drop_tip()
 
-    # Transfer Samples from TC to Mag Mod (5)
-    def transfer_samples_f_TC():
-        for src, dest in zip(tc_plate_wells, mag_plate_wells):
-            # m300.pick_up_tip()
-            m300.transfer(60, src, dest, new_tip='always', mix_after=(5, 60), trash=False)
-            # m300.drop_tip()
-
     # Add AMPure XP Beads to Mag Mod (6-7)
     def adding_ampurebeads():
         ctx.pause('''Add Ampure Beads manually to reservoir in slot 3 Position 12.''')
+        pick_up(m300)
         for well in mag_plate_wells:
-            # pick_up(m300)
             m300.transfer(60, ampure_beads, well, new_tip='never',
-                          mix_before=(3, 60), trash=False)
+                          mix_before=(3, 60))
+        m300.drop_tip()
+
+    # Transfer Samples from TC to Mag Mod (5)
+    def transfer_samples_f_TC():
+        # m300.drop_tip()
+        for src, dest in zip(tc_plate_wells, mag_plate_wells):
+            # m300.pick_up_tip()
+            m300.transfer(60, src, dest, new_tip='always', mix_after=(5, 60), trash=False)
             # m300.drop_tip()
 
     # Pause for Hula Mixer/Spin Down (8-9)
@@ -251,8 +254,12 @@ def run(ctx):
 
     # Transfer 61 EB to MIDI plate
     def transfer_eb_midi():
+        m300.home()
+        ctx.pause("Replace the tips")
+        m300.reset_tipracks()
         for well in mag_plate_wells:
             m300.transfer(61, nfa, well.top(-3), mix_after=(3, 60), new_tip='always', trash=False)
+
         ctx.delay(minutes=2, msg='Incubating at Room Temperature for 2 minutes...')
 
         # Engage Magnet (18)
