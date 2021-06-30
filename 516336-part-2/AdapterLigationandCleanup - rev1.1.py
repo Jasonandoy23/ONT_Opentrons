@@ -297,7 +297,7 @@ def run(ctx):
 
         # ctx.delay(minutes=10,
         #           msg='Incubating at Room Temperature for 10 minutes.')
-        ctx.pause('''Shake and incubate at Room Temperature for 10 minutes.''')
+        ctx.pause('''Shake, spin down and incubate at Room Temperature for 10 minutes.''')
         # # m300.drop_tip(home_after=False)
 
     # ENGAGE MAGNET FOR 5 MINUTES(8)

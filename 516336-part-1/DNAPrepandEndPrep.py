@@ -260,7 +260,7 @@ def run(ctx):
         for well in mag_plate_wells:
             m300.transfer(61, nfa, well.top(-3), mix_after=(3, 60), new_tip='always', trash=False)
 
-        ctx.delay(minutes=2, msg='Incubating at Room Temperature for 2 minutes...')
+        ctx.pause('''Shake, spin down and incubate at Room Temperature for 10 minutes.''')
 
         # Engage Magnet (18)
         magnet(5)
