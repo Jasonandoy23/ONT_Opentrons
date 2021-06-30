@@ -159,7 +159,7 @@ def run(ctx):
     # TRANSFER ADAPTER LIGATION MIX TO SAMPLES ON PCR PLATE (1)
     def transfer_adapter_ligation():
         temp_mod.set_temperature(8)
-        ctx.pause('Add the Mastermix tube to the cooling block position A1 and resume.')
+        ctx.pause('Add the Mastermix tube to the cooling block position A1, B1, C1, D1 and resume.')
         # p300.transfer(40, mm, sample_plate_wells, new_tip='always', mix_after=(3, 30))
         m300.pick_up_tip(tipsracks_single['A1'])
         # y = 0
