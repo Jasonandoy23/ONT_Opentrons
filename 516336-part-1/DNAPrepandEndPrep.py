@@ -265,7 +265,7 @@ def run(ctx):
         mag_mod.disengage()
         ctx.set_rail_lights(False)
 
-    # transfer_endprepmix()
+    transfer_endprepmix()
     threading.Thread(target=adding_ampurebeads).start()
     threading.Thread(target=spindown_thermocycler_process).run()
     transfer_samples_f_TC()
