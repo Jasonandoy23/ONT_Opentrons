@@ -164,7 +164,7 @@ def run(ctx):
         m300.home()
         pick_up(m300)
         for well in mag_plate_wells:
-            m300.transfer(60, ampure_beads, well, new_tip='never', mix_before=(3, 60))
+            m300.transfer(60, ampure_beads, well, new_tip='never', mix_before=(3, 60), blow_out=True, blowout_location=('destination well'))
         m300.drop_tip(home_after=False)
 
     # Pause for Spin Down (2)
