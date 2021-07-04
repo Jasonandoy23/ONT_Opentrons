@@ -1,6 +1,6 @@
 def get_values(*names):
     import json
-    _all_values = json.loads("""{"samples":96,"m300_mount":"right","p300_mount":"left","mag_engage_height":7.8}""")
+    _all_values = json.loads("""{"samples":96,"m300_mount":"right","p300_mount":"left","mag_engage_height":7.6}""")
     return [_all_values[n] for n in names]
 
 
@@ -8,6 +8,7 @@ from opentrons import protocol_api, types
 import math
 import pandas as pd
 import csv
+import threading
 
 metadata = {
     'protocolName': 'Ligation Sequencing Kit: DNA Repair and End-Prep',
@@ -87,7 +88,7 @@ def run(ctx):
             m300.dispense(300, dest)
             m300.aspirate(10, dest)
             vol -= 300
-        m300.aspirate(vol, src.bottom().move(types.Point(x=side, y=0, z=0.5)))
+        m300.aspirate(vol, src.bottom(1.5).move(types.Point(x=side, y=0, z=0.5)))
         m300.dispense(vol, dest)
         m300.dispense(10, dest)
         m300.flow_rate.aspirate = 50
@@ -154,28 +155,27 @@ def run(ctx):
         temp_mod.set_temperature(8)
         ctx.pause('Add the Mastermix tube to the cooling block position A1 and resume.')
         for i in range(len(Target_position)):
-            #         p300.pick_up_tip()
-            #         p300.aspirate(12, mm)
-
-            #         p300.dispense(12, tc_plate[Target_position[i]])
-            #         p300.mix(3, 30, tc_plate[Target_position[i]])
-            #         p300.blow_out()
-            #         p300.drop_tip(home_after=False)
             p300.transfer(12, mm, tc_plate[Target_position[i]], new_tip='always',
                           mix_after=(3, 30), trash=False)
-            # p300.drop_tip(home_after=False)
         temp_mod.deactivate()
+
+    # Add AMPure XP Beads to Mag Mod (6-7)
+    def adding_ampurebeads():
+        m300.home()
+        pick_up(m300)
+        for well in mag_plate_wells:
+            m300.transfer(60, ampure_beads, well, new_tip='never', mix_before=(3, 60))
+        m300.drop_tip(home_after=False)
 
     # Pause for Spin Down (2)
     def spindown_thermocycler_process():
-        ctx.pause('Spin down the plate while Thermocycler pre heating to 20C is ongoing and resume.')
-        #
-        # # Pre-Heat Thermocycler to 20C
-        # ctx.pause('Pre-Heating the thermocycler to 20C.')
+        ctx.pause('Spin down the plate while Thermocycler pre heating to 20C will run,press resume to commence.')
+        tc_mod.close_lid()
         tc_mod.set_block_temperature(20)
         tc_mod.set_lid_temperature(70)
-        ctx.pause('Put the sample plate into the thermocycler')
-
+        tc_mod.open_lid()
+        ctx.pause('Put the sample plate into the thermocycler and Add Ampure Beads in slot 3 Reservoir Position 12')
+        # running in parallel ( Adding Ampure Beads )
         # Incubate on Thermocycler (3)
         tc_mod.close_lid()
         profile = [{'temperature': 20, 'hold_time_minutes': 5},
@@ -184,27 +184,15 @@ def run(ctx):
         tc_mod.open_lid()
         tc_mod.deactivate()
 
-    # Resuspend AMPure Beads (4)
-    #     m300.pick_up_tip()
-    #     m300.mix(5, 300, ampure_beads.bottom(z=3))
-    #     m300.drop_tip()
-
-    # Add AMPure XP Beads to Mag Mod (6-7)
-    def adding_ampurebeads():
-        ctx.pause('''Add Ampure Beads manually to reservoir in slot 3 Position 12.''')
-        pick_up(m300)
-        for well in mag_plate_wells:
-            m300.transfer(60, ampure_beads, well, new_tip='never',
-                          mix_before=(3, 60))
-        m300.drop_tip()
-
     # Transfer Samples from TC to Mag Mod (5)
     def transfer_samples_f_TC():
-        # m300.drop_tip()
+        m300.home()
+        try:
+            m300.drop_tip(home_after=False)
+        except:
+            m300.drop_tip(home_after=True)
         for src, dest in zip(tc_plate_wells, mag_plate_wells):
-            # m300.pick_up_tip()
             m300.transfer(60, src, dest, new_tip='always', mix_after=(5, 60), trash=False)
-            # m300.drop_tip()
 
     # Pause for Hula Mixer/Spin Down (8-9)
     def incubate_time1():
@@ -277,9 +265,9 @@ def run(ctx):
         mag_mod.disengage()
         ctx.set_rail_lights(False)
 
-    transfer_endprepmix()
-    spindown_thermocycler_process()
-    adding_ampurebeads()
+    # transfer_endprepmix()
+    threading.Thread(target=adding_ampurebeads).start()
+    threading.Thread(target=spindown_thermocycler_process).run()
     transfer_samples_f_TC()
     incubate_time1()
     magnet_removesupernatant()
